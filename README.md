@@ -22,6 +22,7 @@ ToDo
     * left: analysis; right: prognosis (only KMNI)
 
 
-Result should be a map similar to this:
+Example Output
+--------------
 
 ![alt text](grosswetterlage_overview_2013_05_07_07_30_08.png "Example of resulting image")
