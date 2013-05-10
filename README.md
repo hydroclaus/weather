@@ -12,6 +12,16 @@ This code
 - save the images if you want
 - create an overview map containing all the relevant images
 
-Result should be a map similar to this
+
+ToDo
+----
+
+* plot the text of the prognosis in reasonable way (bottom left)
+* make the headings prettier 
+    * date and hour formatting
+    * left: analysis; right: prognosis (only KMNI)
+
+
+Result should be a map similar to this:
 
 ![alt text](grosswetterlage_overview_2013_05_07_07_30_08.png "Example of resulting image")
