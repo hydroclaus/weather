@@ -5,6 +5,8 @@ wetter.py
 
 Created by Claus Haslauer 
 
+source: https://github.com/clausTue/weather
+
 What this does
 - check the webpages of
     - DWD
@@ -39,7 +41,7 @@ def main():
     times_to_run = gen_times_to_run()
     
     # TODO fix that this points to a chosen location
-    output_path = r'XXX'
+    output_path = r'/Users/claushaslauer/Documents/wetter_data'
     
     # if set to FALSE it will overwrite individual images every time
     #    it creates an overview image
@@ -184,7 +186,7 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
             ar = np.asarray(im)
             ax.imshow(ar, cmap='Greys_r')
         elif map_dict[0] == 'infoBox':
-            ax.text(0.05, 0.9, map_dict[1], size=6)
+            ax.text(0.05, 0.7, map_dict[1], size=6)
         else:
             #print cur_map_id
             im = plt.imread(tmp_lst_imgs[cur_map_id])
@@ -197,7 +199,7 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     title_y_c = 0.95
     #clip_bdry = [[title_x_c - 0.8*title_x_c, title_y_c-0.8*title_y_c], [title_x_c + 1.2*title_x_c, title_y_c+1.2*title_y_c]]
     
-    plt.figtext( title_x_c, title_y_c, title, ha='center', size=8) #,clip_box=clip_bdry, clip_on=True, 
+    #plt.figtext( title_x_c, title_y_c, title, ha='center', size=8) #,clip_box=clip_bdry, clip_on=True, 
     #plt.figtext(0.5, 0.5, prognose, fontsize=6, ha='center')
     # Now make the text auto-wrap...
     #fig.canvas.mpl_connect('draw_event', on_draw)
@@ -215,9 +217,9 @@ def gen_times_to_run(times_type='specified'):
     
     if times_type == 'specified':
         times_to_run = [
-                          '10-05-2013_15:00'
-                        , '10-05-2013_18:00'
-                        , '10-05-2013_21:00'
+                          '16-05-2013_20:32'
+                        #, '16-05-2013_18:00'
+                        #, '10-05-2013_21:00'
                         ]
     else:
         # -------
@@ -253,6 +255,12 @@ def get_gwl_string(url):
     # parse for prognose
     re_prognose = '<h2>Die aktuelle Wetterprognose zur Gro&szlig;wetterlage</h2>\s([\w\&\;\,\.\s]*)'
     prognose = reFind(re_prognose, web_pg)
+    
+    
+    #match 80 characters, plus some more, until a space is reached
+    pattern = re.compile(r'(.{70}\w*?)(\s)')  
+    #keep the '80 characters, plus some more' and substitute the following space with new line
+    prognose = pattern.sub(r'\1\n', prognose)
     print 'prognose: ', prognose
     
     return title, prognose

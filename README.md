@@ -31,6 +31,7 @@ This code
 
 ## License
 CC BY-NC 3.0
+
 see [creativecommons webpage][6]
 ## Changelog
 
