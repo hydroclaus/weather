@@ -20,10 +20,11 @@ This code
 
 ## ToDo
 
-* plot the text of the prognosis in reasonable way (bottom left)
+* **done 20130517** plot the text of the prognosis in reasonable way (bottom left)
 * make the headings prettier 
     * date and hour formatting
     * left: analysis; right: prognosis (only KMNI)
+* find out when a png is flipped and when it is ok
 
 
 ## Example Output
