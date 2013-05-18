@@ -13,9 +13,11 @@ What this does
     - ZAMG
     - KMNI ('AL' = analysis, 'PL' = prediction)
     - wetter.net
-  for information regarding the "Grosswetterlage" in central / NE europe
+      for information regarding the "Grosswetterlage" in central / NE europe
 - save the images if you want
 - create an overview map containing all the relevant images
+
+20130517 -- fixed issue with string of prognose (http://stackoverflow.com/questions/16585674/multi-line-text-with-matplotlib-gridspec)
 """
 import sys
 import urllib2
@@ -38,7 +40,7 @@ def main():
     # VARIABLES to be specified
     
     # TODO fix that this still needs manual input
-    times_to_run = gen_times_to_run()
+    times_to_run = gen_times_to_run(start='today', stop='in 1 days', delta='6 hours')
     
     # TODO fix that this points to a chosen location
     output_path = r'/Users/claushaslauer/Documents/wetter_data'
@@ -59,7 +61,8 @@ def main():
     # loop over all selected times when a map is to be created
     for time_to_run in times_to_run:
         print 'next run at: ', time_to_run
-        to_run_sec = time.mktime(datetime.datetime.strptime(time_to_run, "%d-%m-%Y_%H:%M").timetuple())
+        #to_run_sec = time.mktime(datetime.datetime.strptime(time_to_run, "%d-%m-%Y_%H:%M").timetuple())
+        to_run_sec = time.mktime(time_to_run.timetuple())
         sche = sched.scheduler(time.time, time.sleep)
         time_to_run = to_run_sec #now + 5 #datetime.timedelta(seconds=5)
         sche.enterabs(time_to_run, 1, create_grosswetterlage_overview_map, (output_path,save_individual_imgs))
@@ -180,13 +183,13 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
         # the actual plotting
         if map_dict[0] in ['wetter.net', 'KNMI_AL', 'KNMI_PL_0', 'KNMI_PL_1', 'KNMI_PL_2', 'KNMI_PL_3']:
             im = plt.imread(tmp_lst_imgs[cur_map_id])
-            ax.imshow(im, origin='lower')
-        elif map_dict[0] == 'dwd':
+            ax.imshow(im) # origin='lower'
+        elif map_dict[0] in ['dwd']:
             im = Image.open(tmp_lst_imgs[cur_map_id]).convert("L")
             ar = np.asarray(im)
             ax.imshow(ar, cmap='Greys_r')
         elif map_dict[0] == 'infoBox':
-            ax.text(0.05, 0.7, map_dict[1], size=6)
+            ax.text(0.05, 0.5, map_dict[1], size=6)
         else:
             #print cur_map_id
             im = plt.imread(tmp_lst_imgs[cur_map_id])
@@ -209,40 +212,90 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     plt.savefig(os.path.join(img_path, outfig_name), dpi=300, bbox_inches="tight", pad_inches=0)
     print "\ndone!"
 
-def gen_times_to_run(times_type='specified'):
+def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
+    # old conventions:
     # dates when the script is to be run
     # dd-mm-yyy_hh:mm
     # hour in 24 hours
     # mm in 60 minutes
     
-    if times_type == 'specified':
-        times_to_run = [
-                          '16-05-2013_20:32'
-                        #, '16-05-2013_18:00'
-                        #, '10-05-2013_21:00'
-                        ]
+    # parse the start
+    if start == 'today':
+        cur_start = datetime.datetime.today().replace(hour=19, minute=0, second=0, microsecond=0)
     else:
-        # -------
-        # creation of list in half hour increments
-        times_to_run = []
-        start_h = 8    # start time
-        end_h = 21       # final time
-        increment = 30 # min
-        n_timesteps = ((end_h - start_h) * 2 ) + 1
-        
-        cur_min = 0
-        for cur_ind in range(n_timesteps):     
-            cur_time = '07-05-2013_%02i:%02i' % (start_h, cur_min)
-            times_to_run.append(cur_time)
-            if len(times_to_run) % 2 == 0:
-                start_h = start_h + 1
-                cur_min = 0
-            else:
-                cur_min = 30
+        raise Exception
+    
+    # parse end
+    matchObj = re.search("\\s([0-9]+)\\s", stop, re.S)
+    if matchObj:
+        print "matchObj.group() : ", matchObj.group()
+        print "matchObj.group(1) : ", matchObj.group(1)
+        delta_days = int(matchObj.group(1))
+    else:
+        print "No match!!"
+        raise Exception
+    
+    
+    # parse delta
+    matchObj = re.search("([0-9]+)\\s", delta, re.S)
+    if matchObj:
+        print "matchObj.group() : ", matchObj.group()
+        print "matchObj.group(1) : ", matchObj.group(1)
+        delta_hours = int(matchObj.group(1))
+    else:
+        print "No match!!"
+        raise Exception
+    
+    # end within delta_days, but add also the delta_hours so the final time is the one desired
+    cur_end = cur_start + datetime.timedelta(days=delta_days, hours=delta_hours)
+    cur_delta = datetime.timedelta(hours=delta_hours)
+    
+    
+#     cur_start = datetime.datetime.now()
+#     cur_end = datetime.datetime.now().replace(hour=19) + datetime.timedelta(days=1)
+#     cur_delta = datetime.timedelta(hours=8)
+    
+    times_to_run = []
+    for result in perdelta(cur_start, cur_end, cur_delta):
+        times_to_run.append(result)
+    
+#     if times_type == 'specified':
+#         times_to_run = [
+#                           '16-05-2013_20:32'
+#                         #, '16-05-2013_18:00'
+#                         #, '10-05-2013_21:00'
+#                         ]
+#     else:
+#         # -------
+#         # creation of list in half hour increments
+#         times_to_run = []
+#         start_h = 8    # start time
+#         end_h = 21       # final time
+#         increment = 30 # min
+#         n_timesteps = ((end_h - start_h) * 2 ) + 1
+#         
+#         cur_min = 0
+#         for cur_ind in range(n_timesteps):     
+#             cur_time = '07-05-2013_%02i:%02i' % (start_h, cur_min)
+#             times_to_run.append(cur_time)
+#             if len(times_to_run) % 2 == 0:
+#                 start_h = start_h + 1
+#                 cur_min = 0
+#             else:
+#                 cur_min = 30
+                
+                
     print times_to_run
 
     return times_to_run
-    
+
+def perdelta(start, end, delta):
+    curr = start
+    while curr < end:
+        yield curr
+        curr += delta
+        
+
 def get_gwl_string(url):
     aResp = urllib2.urlopen(url)
     web_pg = aResp.read()
