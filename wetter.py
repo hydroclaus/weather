@@ -307,7 +307,7 @@ def get_gwl_string(url):
     print 'title: ', title
 
     # parse for prognose
-    re_prognose = '<h2>Die aktuelle Wetterprognose zur Gro&szlig;wetterlage</h2>\s([\w\&\;\,\.\s]*)'
+    re_prognose = '<h2>Die aktuelle Wetterprognose zur Gro&szlig;wetterlage</h2>\s([\w\&\;\,\.\-\s]*)'
     prognose = reFind(re_prognose, web_pg)
 
 
