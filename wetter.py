@@ -222,7 +222,19 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
 
     # parse the start
     if start == 'today':
-        cur_start = datetime.datetime.today().replace(hour=7, minute=0, second=0, microsecond=0)
+        cur_hour = datetime.datetime.now().hour
+        #print cur_hour
+
+        # if not in these intervals, then start at 19
+        hour_intervals = [[1,6], [7,12],[13,18]]
+        time_to_start = 19
+
+        for cur_inter in hour_intervals:
+            if cur_inter[0] <= cur_hour <= cur_inter[1]:
+                time_to_start =cur_inter[0]
+
+        # this is really the important time
+        cur_start = datetime.datetime.today().replace(hour=time_to_start, minute=0, second=0, microsecond=0)
     else:
         raise Exception
 
