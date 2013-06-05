@@ -40,7 +40,7 @@ def main():
     # VARIABLES to be specified
 
     # TODO fix that this still needs manual input
-    times_to_run = gen_times_to_run(start='today', stop='in 7 days', delta='6 hours')
+    times_to_run = gen_times_to_run(start='today', stop='in 21 days', delta='6 hours')
 
     # TODO fix that this points to a chosen location
     output_path = r'/Users/claushaslauer/Documents/wetter_data'
@@ -57,11 +57,18 @@ def main():
     print("The Python version is %s.%s.%s" % sys.version_info[:3])
 
     now = datetime.datetime.now()
-    print "start execution of main() at: ", now
+    print "script started at: ", now
+    print "  first image at: ", times_to_run[0]
+    print "  final image at: ", times_to_run[-1]
+
+    n_runs = len(times_to_run)
 
     # loop over all selected times when a map is to be created
-    for time_to_run in times_to_run:
+    for cur_i, time_to_run in enumerate(times_to_run):
+        print "\n-------------------------------------------"
         print 'next run at: ', time_to_run
+        n_remaining = n_runs - (cur_i + 1)
+        print 'after this, there are %i runs remaining' % n_remaining
         #to_run_sec = time.mktime(datetime.datetime.strptime(time_to_run, "%d-%m-%Y_%H:%M").timetuple())
         to_run_sec = time.mktime(time_to_run.timetuple())
         sche = sched.scheduler(time.time, time.sleep)
@@ -241,8 +248,8 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
     # parse end
     matchObj = re.search("\\s([0-9]+)\\s", stop, re.S)
     if matchObj:
-        print "matchObj.group() : ", matchObj.group()
-        print "matchObj.group(1) : ", matchObj.group(1)
+        #print "matchObj.group() : ", matchObj.group()
+        #print "matchObj.group(1) : ", matchObj.group(1)
         delta_days = int(matchObj.group(1))
     else:
         print "No match!!"
@@ -252,8 +259,8 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
     # parse delta
     matchObj = re.search("([0-9]+)\\s", delta, re.S)
     if matchObj:
-        print "matchObj.group() : ", matchObj.group()
-        print "matchObj.group(1) : ", matchObj.group(1)
+        # print "matchObj.group() : ", matchObj.group()
+        #print "matchObj.group(1) : ", matchObj.group(1)
         delta_hours = int(matchObj.group(1))
     else:
         print "No match!!"
@@ -298,7 +305,7 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
 #                 cur_min = 30
 
 
-    print times_to_run
+    #print times_to_run
 
     return times_to_run
 
