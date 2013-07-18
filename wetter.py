@@ -28,7 +28,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import cm #, colors
-import Image
+from PIL import Image
 import numpy as np
 import re
 import HTMLParser
