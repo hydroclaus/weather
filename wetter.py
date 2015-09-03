@@ -18,6 +18,9 @@ What this does
 - create an overview map containing all the relevant images
 
 20130517 -- fixed issue with string of prognose (http://stackoverflow.com/questions/16585674/multi-line-text-with-matplotlib-gridspec)
+20150903 -- fixed
+                - only 2 prognosis maps available now from Dutch weather service (instead of 3)
+                - the times when the script is run are a bit more simplified (maybe)
 """
 import sys
 import urllib2
@@ -43,8 +46,8 @@ def main():
     times_to_run = gen_times_to_run(start='today', stop='in 21 days', delta='6 hours')
 
     # TODO fix that this points to a chosen location
-    output_path = r'/Users/claushaslauer/Documents/wetter_data'
-    output_path = r'F:/weather_out'
+    output_path = r'E:\Dropbox\segeln_spanien\out'
+    #output_path = r'F:/weather_out'
 
     # if set to FALSE it will overwrite individual images every time
     #    it creates an overview image
@@ -113,22 +116,26 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     # KMNI
     url_base_KMNI = "http://www.knmi.nl/waarschuwingen_en_verwachtingen/weerkaarten.php"
     list_cur_KMNI_ids = find_cur_KMNI(url_base_KMNI)
+    # make sure there are four pictures loaded
+    tmp = list_cur_KMNI_ids[-1]
+    while len(list_cur_KMNI_ids) < 4:
+        list_cur_KMNI_ids.append(tmp)
+    base_url_kmni = 'http://cdn.knmi.nl/knmi/map/page/weer/waarschuwingen_verwachtingen/weerkaarten/%s_large.gif'
+    knmi_urls = []
+    for cur_url_id in list_cur_KMNI_ids:
+        knmi_urls.append(base_url_kmni % cur_url_id)
 
-    knmi_AL_img_url = 'http://www.knmi.nl/library/php/resample_image.php?filename=/waarschuwingen_en_verwachtingen/./images/weerkaarten/%s.gif&width=451' % (list_cur_KMNI_ids[0])
-    knmi_PL0_img_url = 'http://www.knmi.nl/library/php/resample_image.php?filename=/waarschuwingen_en_verwachtingen/./images/weerkaarten/%s.gif&width=451' % (list_cur_KMNI_ids[1])
-    knmi_PL1_img_url = 'http://www.knmi.nl/library/php/resample_image.php?filename=/waarschuwingen_en_verwachtingen/./images/weerkaarten/%s.gif&width=451' % (list_cur_KMNI_ids[2])
-    knmi_PL2_img_url = 'http://www.knmi.nl/library/php/resample_image.php?filename=/waarschuwingen_en_verwachtingen/./images/weerkaarten/%s.gif&width=451' % (list_cur_KMNI_ids[3])
-    knmi_PL3_img_url = 'http://www.knmi.nl/library/php/resample_image.php?filename=/waarschuwingen_en_verwachtingen/./images/weerkaarten/%s.gif&width=451' % (list_cur_KMNI_ids[4])
-
+    # prepare all images and text
     dict_of_urls = [('dwd' , dwd_img_url, 'DWD')
                   , ('zamg' , cur_zamg_img_url, 'ZAMG')
-                  , ('KNMI_AL' , knmi_AL_img_url, 'KMNI_'+knmi_AL_img_url[-18:-14])
+                  , ('KNMI_AL' , knmi_urls[0], 'KMNI_'+knmi_urls[0][-14:-10])
                   , ('wetter.net' , wetnet_img_url, 'wetter.net')
                   , ('infoBox', prognose, title)
-                  , ('KNMI_PL_0' , knmi_PL0_img_url, 'KMNI_'+knmi_PL0_img_url[-18:-14])
-                  , ('KNMI_PL_1' , knmi_PL1_img_url, 'KMNI_'+knmi_PL1_img_url[-18:-14])
-                  , ('KNMI_PL_2' , knmi_PL2_img_url, 'KMNI_'+knmi_PL2_img_url[-18:-14])
-                  , ('KNMI_PL_3' , knmi_PL3_img_url, 'KMNI_'+knmi_PL3_img_url[-18:-14])]
+                  , ('KNMI_PL_0' , knmi_urls[1], 'KMNI_'+knmi_urls[1][-14:-10])
+                  , ('KNMI_PL_1' , knmi_urls[2], 'KMNI_'+knmi_urls[2][-14:-10])
+                  , ('KNMI_PL_2' , knmi_urls[3], 'KMNI_'+knmi_urls[3][-14:-10])
+              #    , ('KNMI_PL_3' , knmi_PL3_img_url, 'KMNI_'+knmi_PL3_img_url[-18:-14])
+              ]
 
     ## -----------
     ## load images
@@ -138,7 +145,10 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
         if cur_url_id[0] == 'infoBox':
             continue
         print '...', cur_url_id[0],
-        file_extension = cur_url_id[1][-3:]
+        if cur_url_id[0][:4]=="KNMI":
+            file_extension = 'gif'
+        else:
+            file_extension = cur_url_id[1][-3:]
 
         if save_individual_imgs == True:
             picString =  'img_' + timestamp  + '_' + cur_url_id[0] + "." + file_extension
@@ -189,13 +199,13 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
             cur_map_id = cur_map_id - 1
 
         # the actual plotting
-        if map_dict[0] in ['wetter.net', 'KNMI_AL', 'KNMI_PL_0', 'KNMI_PL_1', 'KNMI_PL_2', 'KNMI_PL_3']:
+        if map_dict[0] in ['wetter.net', 'KNMI_AL', 'KNMI_PL_0', 'KNMI_PL_1', 'KNMI_PL_2']: # , 'KNMI_PL_3'
             im = plt.imread(tmp_lst_imgs[cur_map_id])
-            ax.imshow(im, origin='lower') #
+            ax.imshow(im, origin='upper') #
         elif map_dict[0] in ['dwd']:
-            im = Image.open(tmp_lst_imgs[cur_map_id]).convert("L")
+            im = Image.open(tmp_lst_imgs[cur_map_id])#.convert("L")
             ar = np.asarray(im)
-            ax.imshow(ar, cmap='Greys_r')
+            ax.imshow(ar) #, cmap='Greys_r'
         elif map_dict[0] == 'infoBox':
             ax.text(0.05, 0.5, map_dict[1], size=6)
         else:
@@ -208,16 +218,10 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     # TODO plot the text of the prognosis in reasonable way
     title_x_c = 0.5
     title_y_c = 0.95
-    #clip_bdry = [[title_x_c - 0.8*title_x_c, title_y_c-0.8*title_y_c], [title_x_c + 1.2*title_x_c, title_y_c+1.2*title_y_c]]
-
-    #plt.figtext( title_x_c, title_y_c, title, ha='center', size=8) #,clip_box=clip_bdry, clip_on=True,
-    #plt.figtext(0.5, 0.5, prognose, fontsize=6, ha='center')
-    # Now make the text auto-wrap...
-    #fig.canvas.mpl_connect('draw_event', on_draw)
-    #plt.show()
     cur_date_time = time.strftime('%Y_%m_%d_%H_%M_%S')
     outfig_name = '_grosswetterlage_overview_' + cur_date_time + ".png"
     plt.savefig(os.path.join(img_path, outfig_name), dpi=300, bbox_inches="tight", pad_inches=0)
+
     print "\ndone!"
 
 def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
@@ -266,46 +270,12 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
         print "No match!!"
         raise Exception
 
-    # end within delta_days, but add also the delta_hours so the final time is the one desired
     cur_end = cur_start + datetime.timedelta(days=delta_days, hours=delta_hours)
     cur_delta = datetime.timedelta(hours=delta_hours)
-
-
-#     cur_start = datetime.datetime.now()
-#     cur_end = datetime.datetime.now().replace(hour=19) + datetime.timedelta(days=1)
-#     cur_delta = datetime.timedelta(hours=8)
 
     times_to_run = []
     for result in perdelta(cur_start, cur_end, cur_delta):
         times_to_run.append(result)
-
-#     if times_type == 'specified':
-#         times_to_run = [
-#                           '16-05-2013_20:32'
-#                         #, '16-05-2013_18:00'
-#                         #, '10-05-2013_21:00'
-#                         ]
-#     else:
-#         # -------
-#         # creation of list in half hour increments
-#         times_to_run = []
-#         start_h = 8    # start time
-#         end_h = 21       # final time
-#         increment = 30 # min
-#         n_timesteps = ((end_h - start_h) * 2 ) + 1
-#
-#         cur_min = 0
-#         for cur_ind in range(n_timesteps):
-#             cur_time = '07-05-2013_%02i:%02i' % (start_h, cur_min)
-#             times_to_run.append(cur_time)
-#             if len(times_to_run) % 2 == 0:
-#                 start_h = start_h + 1
-#                 cur_min = 0
-#             else:
-#                 cur_min = 30
-
-
-    #print times_to_run
 
     return times_to_run
 
@@ -352,14 +322,23 @@ def reFind(re_string, txt_string):
     return str_from_txt
 
 def find_cur_KMNI(url):
+    """
+    find the names of the current files of the images of analysis and prediction of the Dutch Weather service
+    """
+    # find the 
     aResp = urllib2.urlopen(url)
     web_pg = aResp.read()
-
-    re_cur_inds = "<a href=\"./images/weerkaarten/([APL[0-9]*)_large.gif\" target=\"weerkaarten\">"
+    re_cur_inds = 'href="//cdn.knmi.nl/knmi/map/page/weer/waarschuwingen_verwachtingen/weerkaarten/([APL]*[0-9]*)_large.gif"'
     cur_IDs = re.findall(re_cur_inds, web_pg)
 
-    if len(cur_IDs) !=5:
-        raise Exception
+    if len(cur_IDs) !=4:
+        # previously there were 4 maps available (1 analysis, 3 predictions)
+        # this is not the case anymore
+        # hence, an error is printed, not an exception raised
+        print "=== !!! ==="
+        print "The Dutch don't have 4 maps available, as they usually do"
+        print "=== !!! ==="
+        # raise Exception
 
     return cur_IDs
 
