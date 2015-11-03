@@ -17,16 +17,17 @@ What this does
 - save the images if you want
 - create an overview map containing all the relevant images
 
+revisions:
 20130517 -- fixed issue with string of prognose (http://stackoverflow.com/questions/16585674/multi-line-text-with-matplotlib-gridspec)
 20150903 -- fixed
                 - only 2 prognosis maps available now from Dutch weather service (instead of 3)
                 - the times when the script is run are a bit more simplified (maybe)
+20151103 -- updated DWD service update
 """
 import sys
 import urllib2
 import datetime
 import time
-#import codecs
 import os
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -72,10 +73,9 @@ def main():
         print 'next run at: ', time_to_run
         n_remaining = n_runs - (cur_i + 1)
         print 'after this, there are %i runs remaining' % n_remaining
-        #to_run_sec = time.mktime(datetime.datetime.strptime(time_to_run, "%d-%m-%Y_%H:%M").timetuple())
         to_run_sec = time.mktime(time_to_run.timetuple())
         sche = sched.scheduler(time.time, time.sleep)
-        time_to_run = to_run_sec #now + 5 #datetime.timedelta(seconds=5)
+        time_to_run = to_run_sec
         sche.enterabs(time_to_run, 1, create_grosswetterlage_overview_map, (output_path,save_individual_imgs))
 
         sche.run()
@@ -100,7 +100,12 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     ## get current URLs
 
     #DWD
-    dwd_img_url = 'http://www.dwd.de/bvbw/generator/DWDWWW/Content/Oeffentlichkeit/KU/KUPK/Hobbymet/Wetterkarten/Analysekarten/Analysekarten__Default__Boden__Europa__Luftdruck__Bild,property=default.png'
+    dwd_img_url = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png'
+    dwd_img_url_24 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_024.png'
+    dwd_img_url_36 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_036.png'
+    dwd_img_url_48 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_048.png'
+    dwd_img_url_84 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_084.png'
+    dwd_img_url_108 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_108.png'
 
     #ZAMG
     zamg_base_url = 'http://www.zamg.ac.at/cms/de/wetter/wetterkarte?'
@@ -125,16 +130,24 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     for cur_url_id in list_cur_KMNI_ids:
         knmi_urls.append(base_url_kmni % cur_url_id)
 
-    # prepare all images and text
-    dict_of_urls = [('dwd' , dwd_img_url, 'DWD')
-                  , ('zamg' , cur_zamg_img_url, 'ZAMG')
-                  , ('KNMI_AL' , knmi_urls[0], 'KMNI_'+knmi_urls[0][-14:-10])
-                  , ('wetter.net' , wetnet_img_url, 'wetter.net')
-                  , ('infoBox', prognose, title)
-                  , ('KNMI_PL_0' , knmi_urls[1], 'KMNI_'+knmi_urls[1][-14:-10])
-                  , ('KNMI_PL_1' , knmi_urls[2], 'KMNI_'+knmi_urls[2][-14:-10])
-                  , ('KNMI_PL_2' , knmi_urls[3], 'KMNI_'+knmi_urls[3][-14:-10])
-              #    , ('KNMI_PL_3' , knmi_PL3_img_url, 'KMNI_'+knmi_PL3_img_url[-18:-14])
+    # the second las and last number indicate plotting position:
+    #     the second last number: column id
+    #     the last number: row id
+    # this is hard coded, because the weather websites seem to change there services quite
+    #                     a bit (and this changes plotting positions)
+    dict_of_urls = [('dwd' , dwd_img_url, 'DWD', 0, 0)
+                  , ('zamg' , cur_zamg_img_url, 'ZAMG', 0, 1)
+                  , ('KNMI_AL' , knmi_urls[0], 'KMNI_'+knmi_urls[0][-14:-10], 0, 2)
+                  , ('wetter.net' , wetnet_img_url, 'wetter.net', 0, 3)
+                  , ('infoBox', prognose, title, 0, 4)
+                  , ('KNMI_PL_0' , knmi_urls[1], 'KMNI_'+knmi_urls[1][-14:-10], 1, 0)
+                  , ('KNMI_PL_1' , knmi_urls[2], 'KMNI_'+knmi_urls[2][-14:-10], 1, 1)
+                  , ('KNMI_PL_2' , knmi_urls[3], 'KMNI_'+knmi_urls[3][-14:-10], 1, 2)
+                  , ('dwd24' , dwd_img_url_24, 'DWD +24H', 2, 0)
+                  , ('dwd36' , dwd_img_url_36, 'DWD +36H', 2, 1)
+                  , ('dwd48' , dwd_img_url_48, 'DWD +48H', 2, 2)
+                  , ('dwd84' , dwd_img_url_84, 'DWD +84H', 2, 3)
+                  , ('dwd108', dwd_img_url_108, 'DWD +108H', 2, 4)
               ]
 
     ## -----------
@@ -167,29 +180,28 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
 
         tmp_lst_imgs.append(img_dst)
 
-
     ## --------------------
     ## make composite image
 
     # loop over image list
     plt.close('all')
-    fig = plt.figure(figsize=(5, 10))
+    fig = plt.figure(figsize=(7.5, 10))
     plt.subplots_adjust(left=0.1, right=0.9, top=0.95, bottom=0.1)
 
     n_rows = 5
-    outer_grid = gridspec.GridSpec(n_rows, 2 )# ,wspace=0.0, hspace=0.0
+    outer_grid = gridspec.GridSpec(n_rows, 3 )# ,wspace=0.0, hspace=0.0
 
     print '\nmaking overview map: ',
     for cur_map_id, map_dict in enumerate(dict_of_urls):
-        #print cur_map_id
-        cur_row = (cur_map_id % n_rows)
-        if cur_map_id / n_rows == 0:
-            cur_column = 0
+
+        cur_row = map_dict[-1] #(cur_map_id % n_rows)
+        cur_column = map_dict[-2]
         else:
-            cur_column = 1
+
         print '...', map_dict[0],
 
         # preparation: no axes
+        print "cur_row", cur_row
         ax = plt.subplot(outer_grid[cur_row, cur_column], frameon=False)
         ax.axes.get_yaxis().set_visible(False)
         ax.axes.get_xaxis().set_visible(False)
@@ -202,7 +214,7 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
         if map_dict[0] in ['wetter.net', 'KNMI_AL', 'KNMI_PL_0', 'KNMI_PL_1', 'KNMI_PL_2']: # , 'KNMI_PL_3'
             im = plt.imread(tmp_lst_imgs[cur_map_id])
             ax.imshow(im, origin='upper') #
-        elif map_dict[0] in ['dwd']:
+        elif map_dict[0] in ['dwd', 'dwd24', 'dwd36', 'dwd48', 'dwd84', 'dwd108']:
             im = Image.open(tmp_lst_imgs[cur_map_id])#.convert("L")
             ar = np.asarray(im)
             ax.imshow(ar) #, cmap='Greys_r'
@@ -221,7 +233,6 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs):
     cur_date_time = time.strftime('%Y_%m_%d_%H_%M_%S')
     outfig_name = '_grosswetterlage_overview_' + cur_date_time + ".png"
     plt.savefig(os.path.join(img_path, outfig_name), dpi=300, bbox_inches="tight", pad_inches=0)
-
     print "\ndone!"
 
 def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
@@ -270,8 +281,14 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
         print "No match!!"
         raise Exception
 
+    # end within delta_days, but add also the delta_hours so the final time is the one desired
     cur_end = cur_start + datetime.timedelta(days=delta_days, hours=delta_hours)
     cur_delta = datetime.timedelta(hours=delta_hours)
+
+
+#     cur_start = datetime.datetime.now()
+#     cur_end = datetime.datetime.now().replace(hour=19) + datetime.timedelta(days=1)
+#     cur_delta = datetime.timedelta(hours=8)
 
     times_to_run = []
     for result in perdelta(cur_start, cur_end, cur_delta):
@@ -299,7 +316,6 @@ def get_gwl_string(url):
     re_prognose = '<h2>Die aktuelle Wetterprognose zur Gro&szlig;wetterlage</h2>\s([\w\&\;\,\.\-\s]*)'
     prognose = reFind(re_prognose, web_pg)
 
-
     #match 80 characters, plus some more, until a space is reached
     pattern = re.compile(r'(.{70}\w*?)(\s)')
     #keep the '80 characters, plus some more' and substitute the following space with new line
@@ -307,6 +323,7 @@ def get_gwl_string(url):
     print 'prognose: ', prognose
 
     return title, prognose
+
 
 def reFind(re_string, txt_string):
     #print "IN reFIND()"
@@ -321,11 +338,11 @@ def reFind(re_string, txt_string):
     str_from_txt = h.unescape(str_html[0]).strip()
     return str_from_txt
 
+
 def find_cur_KMNI(url):
     """
     find the names of the current files of the images of analysis and prediction of the Dutch Weather service
     """
-    # find the 
     aResp = urllib2.urlopen(url)
     web_pg = aResp.read()
     re_cur_inds = 'href="//cdn.knmi.nl/knmi/map/page/weer/waarschuwingen_verwachtingen/weerkaarten/([APL]*[0-9]*)_large.gif"'
@@ -342,12 +359,11 @@ def find_cur_KMNI(url):
 
     return cur_IDs
 
+
 def find_cur_ZAMG_img_url(url):
     aResp = urllib2.urlopen(url)
     web_pg = aResp.read()
     zamg_re = "<img src=\"(http://www.zamg.ac.at/fix/wetter/bodenkarte/[0-9]*/[0-9]*/[0-9]*/BK_BodAna_Sat_([0-9]*).png)\" border=\"0\" />"
-
-
     cur_id = re.findall(zamg_re, web_pg)
     return cur_id[0][0], cur_id[0][1]
 
