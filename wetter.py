@@ -320,8 +320,8 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
         ax.axes.get_xaxis().set_visible(False)
 
         # fix for the fact that the fourth entry is text and not in tmp_lst_imgs
-        if cur_map_id > 4:
-            cur_map_id = cur_map_id - 1
+        # if cur_map_id > 4:
+        #     cur_map_id = cur_map_id - 1
 
         # the actual plotting
         if map_dict[0] in ['KNMI_AL', 'KNMI_PL_0', 'KNMI_PL_1', 'KNMI_PL_2']:  # , 'KNMI_PL_3' 'wetter.net'
