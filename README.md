@@ -28,7 +28,7 @@ This code
 
 
 ## Example Output
-![alt text](_grosswetterlage_overview_2018_09_14_21_30_10_RGB_adaptive.png "Example of resulting image"){:height="100px"}
+![alt text](_grosswetterlage_overview_2018_09_14_21_30_10_RGB_adaptive.png "Example of resulting image")
 
 ## License
 CC BY-NC 3.0
