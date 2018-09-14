@@ -38,6 +38,7 @@ import re
 import numpy as np
 import urllib
 from PIL import Image
+from bs4 import BeautifulSoup
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -149,6 +150,7 @@ def gen_times_to_run_list(desired_timings, delta_days):
 
     return times_to_run
 
+
 def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     """
     makes the overview weater-maps and forecast png
@@ -180,21 +182,27 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     dwd_img_url_84 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_084.png'
     dwd_img_url_108 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_108.png'
 
+    # DWD Seewetter IonSee
+    url_seewettervorhersage = 'https://www.dwd.de/DE/leistungen/seevorhersagemmost/seewettermittelmeerost.html'
+    dwd_seewetter_ion_tbl, dwd_seewetter_txt = get_tbl(url_seewettervorhersage)
+    dwd_seewetter_ion = dwd_seewetter_ion_tbl + "\n" + dwd_seewetter_txt
+
     # ZAMG
     zamg_base_url = 'http://www.zamg.ac.at/cms/de/wetter/wetterkarte?'
     cur_zamg_img_url, cur_zamg_id = find_cur_ZAMG_img_url(zamg_base_url)
 
     # WETTER.NET
-    # wetnet_img_url = 'http://www.wetter.net/images/kontinente/Europa-600.jpg'
+    wetnet_img_url = 'https://www.wetter.net/components/com_weather/data/images/grosswetterlage.jpg'
     # extra Teil fuer den String des Vorhersagetextes
-    # url_wetterNet_gwl = 'http://www.wetter.net/kontinent/europa-grosswetterlage.html'
-    # title, prognose = get_gwl_string(url_wetterNet_gwl)
+    url_wetterNet = 'http://www.wetter.net/kontinent/europa-grosswetterlage.html'
+    wetter_net_prognose_time, wetter_net_prognose_text = get_gwl_string(url_wetterNet)
 
     # Seewetterbericht
     dwd_seewetter_url = 'https://www.dwd.de/DE/leistungen/seewettermittelmeer/seewettermittelmeer.html?nn=392762'
     issued, wetterlage_ausgabezeit, wetterlage, windvorhersage = get_seewetter(dwd_seewetter_url)
     title = "DWD Seewetterlage: " + issued + " " + wetterlage_ausgabezeit
-    prognose = wetterlage.replace(". ", ".\n") + windvorhersage
+    prognose = wetterlage.replace(". ", ".\n")[:-12] + windvorhersage + "\n" + wetter_net_prognose_time + "\n" + wetter_net_prognose_text
+    print(f"--- Prognose ---\n{prognose}")
 
     # KMNI
     url_base_KMNI = "http://www.knmi.nl/waarschuwingen_en_verwachtingen/weerkaarten.php"
@@ -217,7 +225,7 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     dict_of_urls = [('dwd', dwd_img_url, 'DWD', 0, 0),
                     ('zamg', cur_zamg_img_url, 'ZAMG', 0, 1),
                     ('KNMI_AL', knmi_urls[0], 'KMNI_' + knmi_urls[0][-14:-10], 0, 2),
-                    ('infoBox', prognose, title, 0, 4),
+                    ('wetternet', wetnet_img_url, 'wetternet', 0, 3),
                     ('KNMI_PL_0', knmi_urls[1], 'KMNI_' + knmi_urls[1][-14:-10], 1, 0),
                     ('KNMI_PL_1', knmi_urls[2], 'KMNI_' + knmi_urls[2][-14:-10], 1, 1),
                     ('KNMI_PL_2', knmi_urls[3], 'KMNI_' + knmi_urls[3][-14:-10], 1, 2),
@@ -226,6 +234,8 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
                     ('dwd48', dwd_img_url_48, 'DWD +48H', 2, 2),
                     ('dwd84', dwd_img_url_84, 'DWD +84H', 2, 3),
                     ('dwd108', dwd_img_url_108, 'DWD +108H', 2, 4),
+                    ('seewetter_ost', dwd_seewetter_ion, "DWD Seewetter Vorhersage", 1, 3),
+                    ('infoBox', prognose, title, 0, 4)
                     ]
 
     # ============================================================
@@ -237,9 +247,13 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
 
         if cur_url_id[0] == 'infoBox':
             continue
+        if cur_url_id[0] == 'seewetter_ost':
+            continue
 
         if cur_url_id[0][:4] == "KNMI":
             file_extension = 'gif'
+        elif cur_url_id[0] == 'wetternet':
+            file_extension = 'jpg'
         else:
             file_extension = cur_url_id[1][-3:]
 
@@ -320,6 +334,8 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
 
         elif map_dict[0] == 'infoBox':
             ax.text(0.05, 0.15, map_dict[1], size=font_size, ha='left', wrap=True)
+        elif map_dict[0] == 'seewetter_ost':
+            ax.text(0.05, 0.01, map_dict[1], size=font_size, ha='left', wrap=True)
         else:
             # print cur_map_id
             im = plt.imread(tmp_lst_imgs[cur_map_id])
@@ -426,24 +442,15 @@ def perdelta(start, end, delta):
 
 def get_gwl_string(url):
     a_resp = urllib.request.urlopen(url)
-    web_pg = a_resp.read()
+    web_pg = a_resp.read().decode('utf-8')
 
-    # parse for title
-    re_title = b'<h1>(Gro&szlig;wetterlage in Europa f&uuml;r den [0-9]*.[0-9]*.[0-9]*)</h1>'
-    title = reFind(re_title, web_pg)
-    print('title: ', title)
+    re_string = r'<h4>([0-9]*\.[0-9]*\.[0-9]*)</h4>\r\n.*\n(.*)</p>\r\n'
+    str_html = re.findall(re_string, web_pg)
 
-    # parse for prognose
-    re_prognose = b'<h2>Die aktuelle Wetterprognose zur Gro&szlig;wetterlage</h2>\s([\w\&\;\,\.\-\s]*)'
-    prognose = reFind(re_prognose, web_pg)
+    prognose_time = str_html[0][0].strip()
+    prognose_text = str_html[0][1].strip().replace('.', '.\n')
 
-    # match 80 characters, plus some more, until a space is reached
-    pattern = re.compile(r'(.{70}\w*?)(\s)')
-    # keep the '80 characters, plus some more' and substitute the following space with new line
-    prognose = pattern.sub(r'\1\n', prognose)
-    print('prognose: ', prognose)
-
-    return title, prognose
+    return prognose_time, prognose_text
 
 
 def reFind(re_string, txt_string):
@@ -501,36 +508,82 @@ def get_seewetter(dwd_seewetter_url):
     find_issued_timestamp = r"\\nam\s([0-9]*\.[0-9]*\.[0-9]*\,\s[0-9]*\.[0-9]*\sUTC)"
     issued_re = re.findall(find_issued_timestamp, web_pg)
     issued = issued_re[0]
-    print(issued)
+    # print(issued)
 
     find_wetterlage_ausgabezeit = "Wetterlage\svon\sheute\s([0-9]*\sUTC)"
     wetterlage_ausgabezeit_re = re.findall(find_wetterlage_ausgabezeit, web_pg)
     wetterlage_ausgabezeit = wetterlage_ausgabezeit_re[0]
-    print(wetterlage_ausgabezeit)
+    # print(wetterlage_ausgabezeit)
 
     find_wetterlage = r"</B><br\s/>\s\\n(.*)Vorhersagen\sbis"
     wetterlage_re = re.findall(find_wetterlage, web_pg)
-    wetterlage = html.unescape(wetterlage_re[0]).replace("\\n", "")
-    print(wetterlage)
+    wetterlage = html.unescape(wetterlage_re[0]).replace("\\n", "") + "\n"
+    # print(wetterlage)
 
     find_adria = r"Adria: </B><br /> \\n(.*)\\n</p>\\n<p><B>Ionisches Meer"
     adria_re = re.findall(find_adria, web_pg)
     adria = "Adria: " + html.unescape(adria_re[0]).strip()
-    print(adria)
+    # print(adria)
 
     find_ionisches_meer = r"Ionisches Meer: </B><br /> \\n(.*)\\n</p>\\n<p><B>\&Auml;g\&auml;is"
     ionisches_meer_re = re.findall(find_ionisches_meer, web_pg)
     ionisches_meer = "Ion.Meer: " + html.unescape(ionisches_meer_re[0].strip())
-    print(ionisches_meer)
+    # print(ionisches_meer)
 
     find_aegaeis = r"\&Auml;g\&auml;is: </B><br /> \\n(.*)\\n</p>\\n<p><B>Taurus"
     aegaeis_re = re.findall(find_aegaeis, web_pg)
     aegaeis = "Ägäis: " + html.unescape(aegaeis_re[0].strip().replace("\\n", ""))
-    print(aegaeis)
+    # print(aegaeis)
 
     windvorhersage = adria + "\n" + ionisches_meer + "\n" + aegaeis
 
     return issued, wetterlage_ausgabezeit, wetterlage, windvorhersage
+
+
+def get_tbl(url_seewettervorhersage):
+    """
+    finds table of DWD Seewettervorhersage for Ionic Sea
+    :param url_seewettervorhersage:
+    :return:
+    """
+    a_resp = urllib.request.urlopen(url_seewettervorhersage)
+    web_pg = a_resp.read().decode('utf-8')
+    soup = BeautifulSoup(web_pg)  # , 'lxml'
+    table = soup.find_all('table')[0]
+    table_rows = table.find_all('tr')
+
+    # parse only section of table of Ion.Meer
+    remember = False
+    rows = []
+    for tr in table_rows:
+        td = tr.find_all('td')
+        row = [i.text for i in td]
+        if row[0][:8] == 'Ion.Meer':
+            remember = True
+        if row[0][:10] == 'Aegaeis-N.':
+            remember = False
+        if remember is True:
+            rows.append(row)
+
+    tbl_title = rows[0][0]
+    tbl_header = "day,  UTC,  u(10m)[dir],  u[bft.],  u_max[bft],  wave hight[m],  weather"
+    full_tbl = tbl_title + "\n" + tbl_header + "\n"
+    for row in rows[3:]:
+        row_string = ""
+        for item in row:
+            row_string = row_string + item + ",   "
+        # print(row_string)
+        full_tbl = full_tbl + row_string + "\n"
+
+    # get seewettervorhersage
+    web_pg2 = str(urllib.request.urlopen(url_seewettervorhersage).read())
+    Ere_str_seewetter = r"Wetterlage:</b>\\s<br\\s/>\\n(.*)\\r\\n<br\\s/>\\s<br\\s/>\\n<table "
+    str_seewetter_re = re.search("Wetterlage:</b>\\s<br\\s/>\\\\n(.*)\\\\r\\\\n<br\\s/>\\s<br\\s/>\\\\n<table ", web_pg2)
+    str_seewetter = str_seewetter_re.group(1)
+    str_seewetter_final = html.unescape(str_seewetter.strip()).replace('\\r', "").replace("\\n", "").replace(".", ".\n")
+
+    return full_tbl, str_seewetter_final
+
 
 if __name__ == '__main__':
     main()
