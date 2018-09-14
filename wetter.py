@@ -22,6 +22,13 @@ revisions:
 201505   -- fixed KMNI service update
 20151103 -- updated DWD service update
 20160517 -- updated to python 3.5 including UTF-8 decoding
+20180914 -- updated: adaptive png (`my_dpi`) for DWD Analysenkarte,
+                     compressed png for full matplotlib image (orig. file is being deleted)
+                     check for daylight savings time
+
+
+NOTES
+
 """
 import sys
 import datetime
@@ -35,7 +42,6 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-import html.parser
 import sched
 import html
 
@@ -46,7 +52,7 @@ def main():
     # VARIABLES to be specified
 
     # TODO fix that this still needs manual input
-    times_to_run = gen_times_to_run(start='today', stop='in 21 days', delta='6 hours')
+    #times_to_run = gen_times_to_run(start='today', stop='in 21 days', delta='6 hours')
     # runs every 6 hours at UTC +49min (waiting 49min for update of ZAMG image)
     # UTC       Stuttgart   Athens
     #  0         2           3       dwd aendert analysekarte
@@ -54,18 +60,30 @@ def main():
     # 12        14          15       dwd aendert analysekarte
     # 18        20          21
 
+    # in local (Stuttgart time)
+    desired_timings = [[4, 0],
+                       [4, 30],
+                       [5, 0],
+                       [9, 0],
+                       [9, 30],
+                       [10, 0],
+                       [15, 0],
+                       [15, 30],
+                       [16, 0],
+                       [21, 0],
+                       [21, 30],
+                       [22, 0]]
+    to_run_for_days = 5
+    times_to_run = gen_times_to_run_list(desired_timings, to_run_for_days)
+
     my_dpi = 500
 
-    # TODO fix that this points to a chosen location
-    # segeln_spanien directory
     cur_dir = os.path.dirname(os.path.abspath(__file__))
-    # cur_dir = os.path.normpath(join(os.getcwd(), path))
     print(cur_dir)
     ssdir = os.path.split(cur_dir)[0]
     print(ssdir)
     output_path = os.path.join(ssdir, 'out')
     print(output_path)
-    #output_path = r'F:/weather_out'
 
     # if set to FALSE it will overwrite individual images every time
     #    it creates an overview image
@@ -89,16 +107,47 @@ def main():
         print('next run at: ', time_to_run)
         n_remaining = n_runs - (cur_i + 1)
         print('after this, there are %i runs remaining' % n_remaining)
-        #to_run_sec = time.mktime(datetime.datetime.strptime(time_to_run, "%d-%m-%Y_%H:%M").timetuple())
+        # to_run_sec = time.mktime(datetime.datetime.strptime(time_to_run, "%d-%m-%Y_%H:%M").timetuple())
         to_run_sec = time.mktime(time_to_run.timetuple())
         sche = sched.scheduler(time.time, time.sleep)
-        time_to_run = to_run_sec #now + 5 #datetime.timedelta(seconds=5)
+        time_to_run = to_run_sec  # now + 5 #datetime.timedelta(seconds=5)
         sche.enterabs(time_to_run, 1, create_grosswetterlage_overview_map, (output_path, save_individual_imgs, my_dpi))
 
         sche.run()
 
     print("Done execution of wetter.py")
 
+
+def gen_times_to_run_list(desired_timings, delta_days):
+    """
+    generates a list with datetime objects when code is to run, based on
+    `desired_timings`
+    """
+    start = datetime.datetime.now()
+    end = start + datetime.timedelta(days=delta_days)
+    cur_hour = datetime.datetime(start.year, start.month, start.day, start.hour, start.minute)
+    for i in range(len(desired_timings)):
+        # print(i)
+        time_to_test = datetime.datetime(start.year, start.month, start.day, desired_timings[i][0], desired_timings[i][1])
+        if (cur_hour < time_to_test):
+            remember_position = i
+            break
+    times_to_run = [cur_hour]
+
+    # fill up rest of the day
+    for i in range(remember_position, len(desired_timings)):
+        times_to_run.append(datetime.datetime(start.year, start.month, start.day, desired_timings[i][0], desired_timings[i][1]))
+
+    # fill the remaining days
+    for cur_day in range(delta_days+1):
+        for i in range(len(desired_timings)):
+            times_to_run.append(datetime.datetime(start.year, start.month, start.day + cur_day, desired_timings[i][0], desired_timings[i][1]))
+
+    # print final list
+    for item in times_to_run:
+        print(item)
+
+    return times_to_run
 
 def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     """
@@ -107,25 +156,23 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     font_size = 16
     print("start creating map")
 
+    # various timestamps
     timestamp = time.strftime('%Y_%m_%d_%H_%M_%S')
-    cur_yr = time.strftime('%Y')
-    cur_yr_short = time.strftime('%y')
-    cur_month = time.strftime('%m')
-    cur_day = time.strftime('%d')
-    cur_hour = time.strftime('%H')
-
+    # cur_yr = time.strftime('%Y')
+    # cur_yr_short = time.strftime('%y')
+    # cur_month = time.strftime('%m')
+    # cur_day = time.strftime('%d')
+    # cur_hour = time.strftime('%H')
     now_utc = datetime.datetime.utcnow()
-    cur_hour_utc = now_utc.strftime("%H")
-
-
-    cur_day_1 = '%02i' % (int(time.strftime('%d'))+1)
-    cur_day_2 = '%02i' % (int(time.strftime('%d'))+2)
-    cur_day_3 = '%02i' % (int(time.strftime('%d'))+3)
+    # cur_hour_utc = now_utc.strftime("%H")
+    # cur_day_1 = '%02i' % (int(time.strftime('%d'))+1)
+    # cur_day_2 = '%02i' % (int(time.strftime('%d'))+2)
+    # cur_day_3 = '%02i' % (int(time.strftime('%d'))+3)
 
     # ----------------
     # get current URLs
-    # DWD
 
+    # DWD
     dwd_img_url = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png'
     dwd_img_url_24 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_024.png'
     dwd_img_url_36 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_036.png'
@@ -135,18 +182,12 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
 
     # ZAMG
     zamg_base_url = 'http://www.zamg.ac.at/cms/de/wetter/wetterkarte?'
-    cur_zamg_img_url, cur_zamg_ID = find_cur_ZAMG_img_url(zamg_base_url)
-
-    # backup if reading does not work
-    # BK_timestamp = cur_yr_short + cur_month + cur_day + cur_hour_utc + '00'
-    # cur_zamg_img_url = 'https://www.zamg.ac.at/fix/wetter/bodenkarte/' + cur_yr + '/' + cur_month +'/' + cur_day + '/BK_BodAna_Sat_' + BK_timestamp + '.png'
-    # print("cur_zamg_img_url")
+    cur_zamg_img_url, cur_zamg_id = find_cur_ZAMG_img_url(zamg_base_url)
 
     # WETTER.NET
-    # todo -- is this really always the same URL?
-    wetnet_img_url = 'http://www.wetter.net/images/kontinente/Europa-600.jpg'
+    # wetnet_img_url = 'http://www.wetter.net/images/kontinente/Europa-600.jpg'
     # extra Teil fuer den String des Vorhersagetextes
-    url_wetterNet_gwl = 'http://www.wetter.net/kontinent/europa-grosswetterlage.html'
+    # url_wetterNet_gwl = 'http://www.wetter.net/kontinent/europa-grosswetterlage.html'
     # title, prognose = get_gwl_string(url_wetterNet_gwl)
 
     # Seewetterbericht
@@ -197,12 +238,12 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
         if cur_url_id[0] == 'infoBox':
             continue
 
-        if cur_url_id[0][:4]=="KNMI":
+        if cur_url_id[0][:4] == "KNMI":
             file_extension = 'gif'
         else:
             file_extension = cur_url_id[1][-3:]
 
-        if save_individual_imgs == True:
+        if save_individual_imgs is True:
             pic_string = 'img_' + timestamp + '_' + cur_url_id[0] + "." + file_extension
         else:
             # make a string such that images are overwritten in each run
@@ -213,6 +254,9 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
         img_request = urllib.request.Request(cur_url_id[1])
         try:
             img_data = urllib.request.urlopen(img_request).read()
+
+        # if this fails, this might be worth trying out:
+        #    https://stackoverflow.com/a/44926875/1510463
         except urllib.error.HTTPError as e:
             error_string = f"\nthrown error while processing: {cur_url_id[0]} \n Processing URL {cur_url_id[1]} \n {e.code} \n {e.msg}"
             print(error_string)
@@ -222,7 +266,7 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
             pass
 
         output = open(img_dst, 'wb')
-        output.write(img_data)
+        output.write(img_data)  # if except above is executed, it will save and use the last map (from previous run/iteration)
         output.close()
         print("img saved to: ", img_dst)
         tmp_lst_imgs.append(img_dst)  # da stehen variablen mit images drin
@@ -246,7 +290,7 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     fig = plt.figure(figsize=(fig_size_x, fig_size_y))
     plt.subplots_adjust(left=0.1, right=0.9, top=0.95, bottom=0.1)
     outer_grid = gridspec.GridSpec(n_rows_axes,
-                                   n_columns_axes )
+                                   n_columns_axes)
 
     for cur_map_id, map_dict in enumerate(dict_of_urls):
 
@@ -287,18 +331,22 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
 
     cur_date_time = time.strftime('%Y_%m_%d_%H_%M_%S')
     out_fig_name = '_grosswetterlage_overview_' + cur_date_time + ".png"
-    plt.savefig(os.path.join(img_path, out_fig_name),
+    orig_png_fobj = os.path.join(img_path, out_fig_name)
+    plt.savefig(orig_png_fobj,
                 dpi=my_dpi,
                 bbox_inches="tight",
                 pad_inches=0)
 
     # try compression
-    im = Image.open(os.path.join(img_path, out_fig_name))
+    im = Image.open(orig_png_fobj)
     im2 = im.convert('RGB').convert('P', palette=Image.ADAPTIVE)
     out_fig_name_adaptive = '_grosswetterlage_overview_' + cur_date_time + "_RGB_adaptive.png"
     im2.save(os.path.join(img_path, out_fig_name_adaptive), format='PNG')
 
-    # todo delete out_fig_name
+    if os.path.isfile(orig_png_fobj):
+        os.remove(orig_png_fobj)
+    else:  # Show an error
+        print("Error: %s file not found" % orig_png_fobj)
 
     print("\ndone!")
 
@@ -314,14 +362,15 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
     if start == 'today':
         cur_hour = datetime.datetime.now().hour
 
-        # if not in these intervals, then start at 19
-        # WINTERZEIT
-        # hour_intervals = [[1,6], [7,12],[13,18]]
-        # time_to_start = 19
-        # SOMMERZEIT
-        hour_intervals = [[2,7], [8,13],[14,19], [20,1]]
-        time_to_start = 21
+        # the following intervals are specific for code run on Computer under German Time Zone
+        #  the script is always run at UTC 0, 6, 12, 18 corresponds to 2, 8, 14, 20
+        if bool(time.localtime().tm_isdst) is True:
+            hour_intervals = [[2, 7], [8, 13], [14, 19], [20, 1]]
+        else:
+            hour_intervals = [[1, 6], [7, 12], [13, 18]]
 
+        time_to_start = 21
+        # start at the left interval boundary
         for cur_inter in hour_intervals:
             if cur_inter[0] <= cur_hour <= cur_inter[1]:
                 time_to_start = cur_inter[0]
@@ -332,17 +381,17 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
         raise Exception
 
     # parse end
-    matchObj = re.search("\\s([0-9]+)\\s", stop, re.S)
-    if matchObj:
-        delta_days = int(matchObj.group(1))
+    match_obj = re.search("\\s([0-9]+)\\s", stop, re.S)
+    if match_obj:
+        delta_days = int(match_obj.group(1))
     else:
         print("No match!!")
         raise Exception
 
     # parse delta
-    matchObj = re.search("([0-9]+)\\s", delta, re.S)
-    if matchObj:
-        delta_hours = int(matchObj.group(1))
+    match_obj = re.search("([0-9]+)\\s", delta, re.S)
+    if match_obj:
+        delta_hours = int(match_obj.group(1))
     else:
         print("No match!!")
         raise Exception
@@ -362,6 +411,13 @@ def gen_times_to_run(start='today', stop='in 1 days', delta='6 hours'):
 
 
 def perdelta(start, end, delta):
+    """
+    adds `delta` hours to a time-stamp until `end`
+    :param start:
+    :param end:
+    :param delta:
+    :return:
+    """
     curr = start
     while curr < end:
         yield curr
@@ -369,8 +425,8 @@ def perdelta(start, end, delta):
 
 
 def get_gwl_string(url):
-    aResp = urllib.request.urlopen(url)
-    web_pg = aResp.read()
+    a_resp = urllib.request.urlopen(url)
+    web_pg = a_resp.read()
 
     # parse for title
     re_title = b'<h1>(Gro&szlig;wetterlage in Europa f&uuml;r den [0-9]*.[0-9]*.[0-9]*)</h1>'
@@ -393,9 +449,9 @@ def get_gwl_string(url):
 def reFind(re_string, txt_string):
     # print "IN reFIND()"
     # print "re_string: ", re_string
-    regEx = re.compile(re_string)
-    str_html = re.findall(regEx, txt_string)
-    if len(str_html)==0:
+    regex = re.compile(re_string)
+    str_html = re.findall(regex, txt_string)
+    if len(str_html) == 0:
         raise Exception
 
     h = html.parser.HTMLParser()
@@ -407,12 +463,12 @@ def find_cur_KMNI(url):
     """
     find the names of the current files of the images of analysis and prediction of the Dutch Weather service
     """
-    aResp = urllib.request.urlopen(url)
-    web_pg = aResp.read()
+    a_resp = urllib.request.urlopen(url)
+    web_pg = a_resp.read()
     re_cur_inds = b'href="//cdn.knmi.nl/knmi/map/page/weer/waarschuwingen_verwachtingen/weerkaarten/([APL]*[0-9]*)_large.gif"'
-    cur_IDs = re.findall(re_cur_inds, web_pg)
+    cur_ids = re.findall(re_cur_inds, web_pg)
 
-    if len(cur_IDs) !=4:
+    if len(cur_ids) !=4:
         # previously there were 4 maps available (1 analysis, 3 predictions)
         # this is not the case anymore
         # hence, an error is printed, not an exception raised
@@ -421,19 +477,25 @@ def find_cur_KMNI(url):
         print("=== !!! ===")
         # raise Exception
 
-    return cur_IDs
+    return cur_ids
 
 
 def find_cur_ZAMG_img_url(url):
-    aResp = urllib.request.urlopen(url)
-    web_pg = aResp.read()
+    a_resp = urllib.request.urlopen(url)
+    web_pg = a_resp.read()
     zamg_re = b"(/fix/wetter/bodenkarte/([0-9]*/[0-9]*/[0-9]*)/BK_BodAna_Sat_([0-9]*).png)"
     cur_id = re.findall(zamg_re,
                         web_pg)
     zamg_img_url = 'https://www.zamg.ac.at/' + cur_id[0][0].decode("utf-8")
     return zamg_img_url, cur_id[0][1].decode("utf-8")
 
+
 def get_seewetter(dwd_seewetter_url):
+    """
+    get seewetter conditions from DWD
+    :param dwd_seewetter_url: 
+    :return: 
+    """
     web_pg = str(urllib.request.urlopen(dwd_seewetter_url).read())
 
     find_issued_timestamp = r"\\nam\s([0-9]*\.[0-9]*\.[0-9]*\,\s[0-9]*\.[0-9]*\sUTC)"
