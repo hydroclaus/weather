@@ -28,7 +28,7 @@ This code
 
 
 ## Example Output
-![alt text](grosswetterlage_overview_2013_05_07_07_30_08.png "Example of resulting image")
+![alt text](_grosswetterlage_overview_2018_09_14_21_30_10_RGB_adaptive.png "Example of resulting image"){:height="100px"}
 
 ## License
 CC BY-NC 3.0
@@ -40,6 +40,13 @@ see [creativecommons webpage][6]
 
 * initial commit
 * basic functionality
+
+### 0.2 2018-Sep-14
+
+* added: analysis and forecast in text form
+* added: adaptive dpi accoring to dwd analysis map resolution
+* added: compressed png to reduce file size
+* modified: creation of list of timings when to create a map
 
 [1]: http://m.guardian.co.uk/news/datablog/2013/apr/25/forget-big-data-small-data-revolution
 [2]: http://www.dwd.de/bvbw/appmanager/bvbw/dwdwwwDesktop?_nfpb=true&_pageLabel=_dwdwww_spezielle_nutzer_hobbymeteorologen_karten&T19603831211153462939953gsbDocumentPath=Navigation%2FOeffentlichkeit%2FSpezielle__Nutzer%2FHobbymet%2FWetterkarten%2FAnalysekarten%2FAnalysekarten__Boden__Luftdruck__Westeuropa__node.html%3F__nnn%3Dtrue
