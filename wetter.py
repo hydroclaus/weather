@@ -28,6 +28,7 @@ revisions:
 
 
 NOTES
+- DWD has prediction for Stuttgart: e.g., https://www.dwd.de/DWD/wetter/wv_allg/deutschland_trend/bilder/ecmwf_meg_10738.png
 
 """
 import sys
@@ -80,11 +81,11 @@ def main():
     my_dpi = 500
 
     cur_dir = os.path.dirname(os.path.abspath(__file__))
-    print(cur_dir)
+    print("cur_dir:", cur_dir)
     ssdir = os.path.split(cur_dir)[0]
     print(ssdir)
-    output_path = os.path.join(ssdir, 'out')
-    print(output_path)
+    output_path = os.path.join(cur_dir, 'out')
+    print("output_path: ", output_path)
 
     # if set to FALSE it will overwrite individual images every time
     #    it creates an overview image
@@ -128,10 +129,11 @@ def gen_times_to_run_list(desired_timings, delta_days):
     end = start + datetime.timedelta(days=delta_days)
     cur_hour = datetime.datetime(start.year, start.month, start.day, start.hour, start.minute)
     for i in range(len(desired_timings)):
-        # print(i)
+        print(i)
         time_to_test = datetime.datetime(start.year, start.month, start.day, desired_timings[i][0], desired_timings[i][1])
         if (cur_hour < time_to_test):
             remember_position = i
+            print(remember_position)
             break
     times_to_run = [cur_hour]
 
@@ -183,9 +185,9 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     dwd_img_url_108 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_108.png'
 
     # DWD Seewetter IonSee
-    url_seewettervorhersage = 'https://www.dwd.de/DE/leistungen/seevorhersagemmost/seewettermittelmeerost.html'
-    dwd_seewetter_ion_tbl, dwd_seewetter_txt = get_tbl(url_seewettervorhersage)
-    dwd_seewetter_ion = dwd_seewetter_ion_tbl + "\n" + dwd_seewetter_txt
+    # url_seewettervorhersage = 'https://www.dwd.de/DE/leistungen/seevorhersagemmost/seewettermittelmeerost.html'
+    # dwd_seewetter_ion_tbl, dwd_seewetter_txt = get_tbl(url_seewettervorhersage)
+    # dwd_seewetter_ion = dwd_seewetter_ion_tbl + "\n" + dwd_seewetter_txt
 
     # ZAMG
     zamg_base_url = 'http://www.zamg.ac.at/cms/de/wetter/wetterkarte?'
@@ -228,13 +230,13 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
                     ('wetternet', wetnet_img_url, 'wetternet', 0, 3),
                     ('KNMI_PL_0', knmi_urls[1], 'KMNI_' + knmi_urls[1][-14:-10], 1, 0),
                     ('KNMI_PL_1', knmi_urls[2], 'KMNI_' + knmi_urls[2][-14:-10], 1, 1),
-                    ('KNMI_PL_2', knmi_urls[3], 'KMNI_' + knmi_urls[3][-14:-10], 1, 2),
+                    # ('KNMI_PL_2', knmi_urls[3], 'KMNI_' + knmi_urls[3][-14:-10], 1, 2),
                     ('dwd24', dwd_img_url_24, 'DWD +24H', 2, 0),
                     ('dwd36', dwd_img_url_36, 'DWD +36H', 2, 1),
                     ('dwd48', dwd_img_url_48, 'DWD +48H', 2, 2),
                     ('dwd84', dwd_img_url_84, 'DWD +84H', 2, 3),
                     ('dwd108', dwd_img_url_108, 'DWD +108H', 2, 4),
-                    ('seewetter_ost', dwd_seewetter_ion, "DWD Seewetter Vorhersage", 1, 3),
+                    # ('seewetter_ost', dwd_seewetter_ion, "DWD Seewetter Vorhersage", 1, 3),
                     ('infoBox', prognose, title, 0, 4)
                     ]
 
@@ -472,9 +474,12 @@ def find_cur_KMNI(url):
     """
     a_resp = urllib.request.urlopen(url)
     web_pg = a_resp.read()
-    re_cur_inds = b'href="//cdn.knmi.nl/knmi/map/page/weer/waarschuwingen_verwachtingen/weerkaarten/([APL]*[0-9]*)_large.gif"'
+    # print("===========")
+#     print(web_pg)
+    re_cur_inds = b'href="https://cdn.knmi.nl/knmi/map/page/weer/waarschuwingen_verwachtingen/weerkaarten/([APL]*[0-9]*)_large.gif"'
     cur_ids = re.findall(re_cur_inds, web_pg)
-
+    print("===========")
+    print(cur_ids)
     if len(cur_ids) !=4:
         # previously there were 4 maps available (1 analysis, 3 predictions)
         # this is not the case anymore
@@ -504,6 +509,7 @@ def get_seewetter(dwd_seewetter_url):
     :return: 
     """
     web_pg = str(urllib.request.urlopen(dwd_seewetter_url).read())
+    #print(web_pg)
 
     find_issued_timestamp = r"\\nam\s([0-9]*\.[0-9]*\.[0-9]*\,\s[0-9]*\.[0-9]*\sUTC)"
     issued_re = re.findall(find_issued_timestamp, web_pg)
@@ -513,12 +519,15 @@ def get_seewetter(dwd_seewetter_url):
     find_wetterlage_ausgabezeit = "Wetterlage\svon\sheute\s([0-9]*\sUTC)"
     wetterlage_ausgabezeit_re = re.findall(find_wetterlage_ausgabezeit, web_pg)
     wetterlage_ausgabezeit = wetterlage_ausgabezeit_re[0]
-    # print(wetterlage_ausgabezeit)
+    #print(wetterlage_ausgabezeit)
 
-    find_wetterlage = r"</B><br\s/>\s\\n(.*)Vorhersagen\sbis"
-    wetterlage_re = re.findall(find_wetterlage, web_pg)
-    wetterlage = html.unescape(wetterlage_re[0]).replace("\\n", "") + "\n"
-    # print(wetterlage)
+    # find_wetterlage = r"</B><br\s/>\s\\n(.*)Vorhersagen\sbis"
+    # wetterlage_re = re.findall(find_wetterlage, web_pg)
+    # print("=======")
+    # print(wetterlage_re)
+    # wetterlage = html.unescape(wetterlage_re[0]).replace("\\n", "") + "\n"
+    wetterlage="bla"
+    # # print(wetterlage)
 
     find_adria = r"Adria: </B><br /> \\n(.*)\\n</p>\\n<p><B>Ionisches Meer"
     adria_re = re.findall(find_adria, web_pg)
@@ -551,6 +560,8 @@ def get_tbl(url_seewettervorhersage):
     soup = BeautifulSoup(web_pg)  # , 'lxml'
     table = soup.find_all('table')[0]
     table_rows = table.find_all('tr')
+    print("=========")
+    print(table_rows)
 
     # parse only section of table of Ion.Meer
     remember = False
@@ -564,7 +575,9 @@ def get_tbl(url_seewettervorhersage):
             remember = False
         if remember is True:
             rows.append(row)
-
+    
+    print("=========")
+    print(rows)
     tbl_title = rows[0][0]
     tbl_header = "day,  UTC,  u(10m)[dir],  u[bft.],  u_max[bft],  wave hight[m],  weather"
     full_tbl = tbl_title + "\n" + tbl_header + "\n"
