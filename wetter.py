@@ -1,6 +1,8 @@
 # encoding: utf-8
 #!/usr/bin/env python
 """
+12:00 UTC = 14:00 Stuttgart
+
 wetter.py
 
 Created by Claus Haslauer
@@ -25,6 +27,7 @@ revisions:
 20180914 -- updated: adaptive png (`my_dpi`) for DWD Analysenkarte,
                      compressed png for full matplotlib image (orig. file is being deleted)
                      check for daylight savings time
+20210708 -- added time zone support
 
 
 NOTES
@@ -34,6 +37,7 @@ NOTES
 import sys
 import datetime
 import time
+import pytz
 import os
 import re
 import numpy as np
@@ -63,18 +67,27 @@ def main():
     # 18        20          21
 
     # in local (Stuttgart time)
-    desired_timings = [[4, 0],
-                       [4, 30],
-                       [5, 0],
-                       [9, 0],
-                       [9, 30],
+    # desired_timings = [[4, 0],
+    #                    [4, 30],
+    #                    [5, 0],
+    #                    [9, 0],
+    #                    [9, 30],
+    #                    [10, 0],
+    #                    [15, 0],
+    #                    [15, 30],
+    #                    [16, 0],
+    #                    [21, 0],
+    #                    [21, 30],
+    #                    [22, 0]]
+    
+    desired_timings = [[5, 0],
                        [10, 0],
-                       [15, 0],
-                       [15, 30],
                        [16, 0],
+                       [19, 0],
                        [21, 0],
-                       [21, 30],
                        [22, 0]]
+                       
+                       
     to_run_for_days = 5
     times_to_run = gen_times_to_run_list(desired_timings, to_run_for_days)
 
@@ -172,6 +185,8 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     # cur_day_1 = '%02i' % (int(time.strftime('%d'))+1)
     # cur_day_2 = '%02i' % (int(time.strftime('%d'))+2)
     # cur_day_3 = '%02i' % (int(time.strftime('%d'))+3)
+    
+
 
     # ----------------
     # get current URLs
@@ -183,6 +198,19 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
     dwd_img_url_48 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_048.png'
     dwd_img_url_84 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_084.png'
     dwd_img_url_108 = 'http://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/ico_tkboden_na_108.png'
+    
+    prev_day_12_UTC = datetime.datetime(now_utc.year, now_utc.month, now_utc.day-1, 12, 0)
+    cur_day_12_UTC = datetime.datetime(now_utc.year, now_utc.month, now_utc.day, 12, 0)
+    cur_day_00_UTC = datetime.datetime(now_utc.year, now_utc.month, now_utc.day, 0, 0)
+    localFormat = "%Y-%m-%d %H:%M"
+    day_format = "%a"
+    
+    dwd_plus_24 = (prev_day_12_UTC + datetime.timedelta(hours=24)).astimezone(pytz.timezone('Europe/Berlin'))    #  .strftime(localFormat)
+    dwd_plus_36 =  (cur_day_00_UTC + datetime.timedelta(hours=36)).astimezone(pytz.timezone('Europe/Berlin'))    #  .strftime(localFormat)
+    dwd_plus_48 =  (cur_day_12_UTC + datetime.timedelta(hours=48)).astimezone(pytz.timezone('Europe/Berlin'))    #  .strftime(localFormat)
+    dwd_plus_84 =  (cur_day_00_UTC + datetime.timedelta(hours=84)).astimezone(pytz.timezone('Europe/Berlin'))    #  .strftime(localFormat)
+    dwd_plus_108 = (cur_day_00_UTC + datetime.timedelta(hours=108)).astimezone(pytz.timezone('Europe/Berlin'))   #  .strftime(localFormat)
+    
 
     # DWD Seewetter IonSee
     # url_seewettervorhersage = 'https://www.dwd.de/DE/leistungen/seevorhersagemmost/seewettermittelmeerost.html'
@@ -231,11 +259,11 @@ def create_grosswetterlage_overview_map(img_path, save_individual_imgs, my_dpi):
                     ('KNMI_PL_0', knmi_urls[1], 'KMNI_' + knmi_urls[1][-14:-10], 1, 0),
                     ('KNMI_PL_1', knmi_urls[2], 'KMNI_' + knmi_urls[2][-14:-10], 1, 1),
                     # ('KNMI_PL_2', knmi_urls[3], 'KMNI_' + knmi_urls[3][-14:-10], 1, 2),
-                    ('dwd24', dwd_img_url_24, 'DWD +24H', 2, 0),
-                    ('dwd36', dwd_img_url_36, 'DWD +36H', 2, 1),
-                    ('dwd48', dwd_img_url_48, 'DWD +48H', 2, 2),
-                    ('dwd84', dwd_img_url_84, 'DWD +84H', 2, 3),
-                    ('dwd108', dwd_img_url_108, 'DWD +108H', 2, 4),
+                    ('dwd24', dwd_img_url_24, f'DWD +24H = {dwd_plus_24.strftime(localFormat)} ({dwd_plus_24.strftime(day_format)})', 2, 0),
+                    ('dwd36', dwd_img_url_36, f'DWD +36H = {dwd_plus_36.strftime(localFormat)} ({dwd_plus_36.strftime(day_format)})', 2, 1),
+                    ('dwd48', dwd_img_url_48, f'DWD +48H = {dwd_plus_48.strftime(localFormat)} ({dwd_plus_48.strftime(day_format)})', 2, 2),
+                    ('dwd84', dwd_img_url_84, f'DWD +84H = {dwd_plus_84.strftime(localFormat)} ({dwd_plus_84.strftime(day_format)})', 2, 3),
+                    ('dwd108', dwd_img_url_108, f'DWD +108H = {dwd_plus_108.strftime(localFormat)} ({dwd_plus_108.strftime(day_format)})', 2, 4),
                     # ('seewetter_ost', dwd_seewetter_ion, "DWD Seewetter Vorhersage", 1, 3),
                     ('infoBox', prognose, title, 0, 4)
                     ]
